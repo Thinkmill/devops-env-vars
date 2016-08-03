@@ -86,17 +86,19 @@ function determineAppEnv (_processAppEnv, supportedEnvs) {
 	
 	// If the servers ip exists in one of the defined subnets, return that environment
 	const serverIp = getServerIp();
+	var envRtn = 'development';
+	
 	Object.keys(VPC_IP_RANGES).forEach(cidr => {
 		const cidrEnv = VPC_IP_RANGES[cidr];
 		if (new Netmask(cidr).contains(serverIp) && supportedEnvs.includes(cidrEnv)) {
-			debug(`APP_ENV determined from server IP as ${chalk.cyan(processAppEnv)} (${chalk.green(serverIp)} is within ${chalk.green(cidr)})`);
-			return cidrEnv;
+			debug(`APP_ENV determined from server IP as ${chalk.cyan(cidrEnv)} (${chalk.green(serverIp)} is within ${chalk.green(cidr)})`);
+			envRtn = cidrEnv;
 		}
 	});
 	
 	// Default to development
-	debug(`APP_ENV defaulting to ${chalk.cyan('development')}`);
-	return 'development';
+	debug(`APP_ENV returning as ${chalk.cyan(envRtn)}`);
+	return envRtn;
 }
 
 
