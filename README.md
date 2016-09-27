@@ -121,7 +121,7 @@ const flags = envLib.buildAppFlags(APP_ENV);
 This is totally optional but gives us a convenient convention for describing other conditions in the `config.js` file.
 In `staging`, for example, the structure returned by this call would be:
 
-```javascript	
+```javascript  
 console.log(flags);
 // { IN_LIVE: false, IN_STAGING: true, IN_TESTING: false, IN_DEVELOPMENT: false }
 ```
@@ -205,10 +205,10 @@ Eg. the URLs of related systems from `APP_ENV`:
 
 ```javascript
 config.CORE_API_URL = ({
-	live: 			'https://core.blueshyft.com.au',
-	staging: 		'https://core-staging.blueshyft.com.au',
-	testing: 		'https://core-testing.blueshyft.com.au',
-	development: 	'http://localhost:3000',
+	live:          'https://core.blueshyft.com.au',
+	staging:       'https://core-staging.blueshyft.com.au',
+	testing:       'https://core-testing.blueshyft.com.au',
+	development:   'http://localhost:3000',
 })[APP_ENV];
 ```
 
