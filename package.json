@@ -4,6 +4,7 @@
   "description": "Helper functions that encapsulate our treatment of environment vars for KeystoneJS apps",
   "main": "index.js",
   "scripts": {
+    "release-patch": "npm version patch && git push && git push --tags",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
