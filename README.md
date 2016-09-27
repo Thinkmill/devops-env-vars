@@ -67,6 +67,9 @@ config.OTHER_IMPORTANT_VARS = 'blah blah'
 config.FORCE_SSL = (flags.IN_LIVE || flags.IN_STAGING);
 
 // ..
+
+// Lock and export the config vars
+module.exports = Object.freeze(config);
 ```
 
 
@@ -92,6 +95,19 @@ The valid `APP_ENV` are:
 * `staging`
 * `testing`
 * `development` (default)
+
+Note this differs significantly from `NODE_ENV`, the only recognised value if which is `production`.
+The conventional relationship between `NODE_ENV` and `APP_ENV` is shown in the table below.
+
+| Environment | `APP_ENV` | `NODE_ENV` |
+| ----------- | --------- | ---------- |
+| live | 'live' | 'production' |
+| staging | 'staging' | 'production' |
+| testing | 'testing' | (`undefined` or any value != 'production') |
+| development | 'development' | (`undefined` or any value != 'production') |
+
+This may not hold for all apps, especially older apps created before our `APP_ENV` usage was codified.
+
 
 ### `envLib.buildAppFlags(APP_ENV)`
 
@@ -120,7 +136,7 @@ if (!flags.IN_DEVELOPMENT) dotenv.config({ path: path.resolve(`../${APP_ENV}.env
 ```
 
 This file should contain any credentials, settings, etc. that are required for the environment but too sensitive to store in the codebase.
-Mandrill API keys, merchant account credentials, production Mongo connection URIs, etc. might be required for a live system but generally aren't needed in development.
+Mandrill API keys, merchant account credentials, live Mongo connection URIs, etc. might be required for a live system but generally aren't needed in development.
 As such, the code above skips this step when `IN_DEVELOPMENT` is true.
 
 If the `.env` file isn't found a warning will be printed to `stderr` but the app will continue to load.
@@ -151,7 +167,7 @@ Variables are described with a `required` flag and, optionally, a default value.
 If a variable is `required` but no present in `process.env` (after the `.env` file has been processed) an error will be raised, halting the app.
 If a variable is both not `required`, not supplied and a `default` is specified, the `default` will be incorporated into the object returned.
 
-As noted above, the `mergeConfig()` function doesn't modify the `process.env` scope.
+As noted above, **the `mergeConfig()` function does not modify the `process.env` scope**.
 Variables that are defaulted based on the validation rules supplied will only exist in the object returned by `mergeConfig()`.
 
 ### Other Config Values
@@ -184,11 +200,12 @@ config.SUPPORT_PHONE_NUMBER = '1800 817 483';
 #### Derived Values
 
 Many important values can be determine from other existing `config` values.
+Values set in this way can't be overridden/set without code changes.
 Eg. the URLs of related systems from `APP_ENV`:
 
 ```javascript
 config.CORE_API_URL = ({
-	production: 	'https://core.blueshyft.com.au',
+	live: 			'https://core.blueshyft.com.au',
 	staging: 		'https://core-staging.blueshyft.com.au',
 	testing: 		'https://core-testing.blueshyft.com.au',
 	development: 	'http://localhost:3000',
@@ -208,5 +225,15 @@ config.ALLOW_UNAUTHENTICATED_ACCESS_TO_DEVELOPER_ENDPOINTS = IN_DEVELOPMENT;
 config.ALLOW_SWEEPDAY_TO_BE_SPECIFIED_ON_CREATE = true;
 
 // Can sweeps be 'reset' after email generation has started
-config.ALLOW_RESET_AFTER_EMAIL_GENERATION = !IN_PRODUCTION;
+config.ALLOW_RESET_AFTER_EMAIL_GENERATION = !IN_LIVE;
+```
+
+### Exporting the Values
+
+The final lines in our example export the `config` object we've created for use by the app after [freezing](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/freeze) it.
+This prevents any other part of the application from accidenally making changes to this object.
+
+```javascript
+// Lock and export the config vars
+module.exports = Object.freeze(config);
 ```
