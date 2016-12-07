@@ -15,8 +15,8 @@ const VPC_IP_RANGES = {
 
 	// Ireland (eu-west-1)
 	'10.130.0.0/16': 'live',
-	'10.132.0.0/16': 'testing',
 	'10.131.0.0/16': 'staging',
+	'10.132.0.0/16': 'testing',
 };
 
 // The different environments we support
