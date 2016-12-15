@@ -3,10 +3,11 @@ Devops: Environment Variables
 
 A set of helper functions that encapsulate our treatment of environment vars for KeystoneJS apps and help us build a useful `config` object.
 
+
 ## Usage
 
-The partial code block below is taken from `config.js` in the `admyt-platform` codebase. 
-It demonstrates how this library should be used in a modern KeystoneJS app.
+The code block below demonstrates how this library should be used in a modern KeystoneJS app.
+It's based on the [`config.js` in the `admyt-platform` codebase](https://github.com/Thinkmill/admyt-platform/blob/develop/config.js).
 
 ```javascript
 'use strict';
@@ -141,6 +142,7 @@ console.log(flags);
 // { IN_LIVE: false, IN_STAGING: true, IN_TESTING: false, IN_DEVELOPMENT: false }
 ```
 
+
 ## `dotenv.config(..)`
 
 Next, standard practice is to seek out a `.env` file in the directory above the application root, named for the current `APP_ENV`:
@@ -160,6 +162,7 @@ See the `dotenv` [package docs](https://www.npmjs.com/package/dotenv) for the ex
 **The `dotenv` package loads these variables directly into the `process.env` scope.**
 This is the default behaviour of `dotenv` and actually pretty useful if you have variables used by packages that don't accept values any other way.
 In it's standard usage, no other part of this process alters the `process.env` scope; we mostly work out of the `config` object, created next.
+
 
 ## `envLib.mergeConfig(APP_ENV, flags, process.env, rules)`
 
@@ -184,6 +187,7 @@ If a variable is both not `required`, not supplied and a `default` is specified,
 
 As noted above, **the `mergeConfig()` function does not modify the `process.env` scope**.
 Variables that are defaulted based on the validation rules supplied will only exist in the object returned by `mergeConfig()`.
+
 
 ## Other Config Values
 
@@ -218,6 +222,9 @@ Many (all?) Thinkmill apps rely on external systems that differ between environm
 This is especially true in for blueshyft, where requests often require the cooperation of shared 
 internal services (such as the core, transaction engine, etc) and external services (such as remote partner APIs).
 
+Since both these approaches add values directly to the config object (without using `mergeConfig()`), 
+values set in this way can't be overridden/set without code changes.
+
 #### blueshyft Apps
 
 For the blueshyft network of apps, the 
@@ -251,9 +258,6 @@ config.PLUMBUS_API_URL = ({
 })[APP_ENV];
 ```
 
-Since both these approaches add values directly to the config object (without using `mergeConfig()`), 
-values set in this way can't be overridden/set without code changes.
-
 
 ### Feature Flags
 
@@ -270,6 +274,7 @@ config.ALLOW_SWEEPDAY_TO_BE_SPECIFIED_ON_CREATE = true;
 // Can sweeps be 'reset' after email generation has started
 config.ALLOW_RESET_AFTER_EMAIL_GENERATION = !IN_LIVE;
 ```
+
 
 ## Exporting the Values
 
