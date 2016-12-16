@@ -135,11 +135,15 @@ const flags = envLib.buildAppFlags(APP_ENV);
 ```
 
 This is totally optional but gives us a convenient convention for describing other conditions in the `config.js` file.
-In `staging`, for example, the structure returned by this call would be:
+
+One flag is created for each environment the app supports (usually: 'live', 'staging', 'testing' and 'development') 
+plus a flag for 'production', which is true if the environment is 'live' or 'staging'.
+
+For example, if the `APP_ENV` was `staging`, the structure returned by the call above would be:
 
 ```javascript  
 console.log(flags);
-// { IN_LIVE: false, IN_STAGING: true, IN_TESTING: false, IN_DEVELOPMENT: false }
+// { IN_LIVE: false, IN_STAGING: true, IN_TESTING: false, IN_DEVELOPMENT: false, IN_PRODUCTION: true }
 ```
 
 

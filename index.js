@@ -80,6 +80,10 @@ function buildAppFlags (appEnv) {
 	SUPPORTED_ENVS.forEach(env => {
 		flags[`IN_${env.toUpperCase()}`] = (env === appEnv);
 	});
+
+	// Add the IN_PRODUCTION flag which covers the live and staging environments
+	flags.IN_PRODUCTION = (flags.IN_LIVE || flags.IN_STAGING);
+
 	return flags;
 }
 
