@@ -37,39 +37,39 @@ const config = envLib.mergeConfig(APP_ENV, flags, process.env, {
 	NODE_ENV: { required: !flags.IN_DEVELOPMENT, default: 'development' },
 
 	// If not supplied, Keystone will default to localhost (ie. in dev)
-	MONGO_URI: { required: !flags.IN_DEVELOPMENT, default: 'mongodb://localhost/admyt-platform' },
+	MONGO_URI: { required: flags.IN_PRODUCTION, default: 'mongodb://localhost/admyt-platform' },
 
 	// Used to encrypt user cookies; not important in dev
-	JWT_TOKEN_SECRET: { required: !flags.IN_DEVELOPMENT, default: 'gottalovejwts' },
+	JWT_TOKEN_SECRET: { required: flags.IN_PRODUCTION, default: 'gottalovejwts' },
 
 	// When not live, allow to be defaulted to a test key
-	MANDRILL_API_KEY: { required: flags.IN_LIVE, default: 'testkeygoeshere' },
+	MANDRILL_API_KEY: { required: flags.IN_PRODUCTION, default: 'testkeygoeshere' },
 
 	// Cloudinary creds; used by Types.CloudinaryImage
-	CLOUDINARY_URL: { required: flags.IN_LIVE || flags.IN_STAGING, default: 'cloudinary://862989489411169:Wp74nFvzkSPGkQHgtCBH7wN4Yik@thinkmill' },
+	CLOUDINARY_URL: { required: flags.IN_PRODUCTION, default: 'cloudinary://862989489411169:Wp74nFvzkSPGkQHgtCBH7wN4Yik@thinkmill' },
 
 	// S3 credentials; used by Types.S3File
-	S3_BUCKET: { required: flags.IN_LIVE || flags.IN_STAGING },
-	S3_KEY: { required: flags.IN_LIVE || flags.IN_STAGING },
-	S3_SECRET: { required: flags.IN_LIVE || flags.IN_STAGING },
+	S3_BUCKET: { required: flags.IN_PRODUCTION },
+	S3_KEY: { required: flags.IN_PRODUCTION },
+	S3_SECRET: { required: flags.IN_PRODUCTION },
 
 	// Urban Airship details; used to notify users
-	UA_APP_KEY: { required: flags.IN_LIVE || flags.IN_STAGING },
-	UA_SECRET_KEY: { required: flags.IN_LIVE || flags.IN_STAGING },
-	UA_MASTER_KEY: { required: flags.IN_LIVE || flags.IN_STAGING },
+	UA_APP_KEY: { required: flags.IN_PRODUCTION },
+	UA_SECRET_KEY: { required: flags.IN_PRODUCTION },
+	UA_MASTER_KEY: { required: flags.IN_PRODUCTION },
 
 	// NewRelic app monitoring
-	NEW_RELIC_LICENSE_KEY: { required: flags.IN_LIVE },
-	NEW_RELIC_APP_NAME: { required: flags.IN_LIVE },
+	NEW_RELIC_LICENSE_KEY: { required: flags.IN_PRODUCTION },
+	NEW_RELIC_APP_NAME: { required: flags.IN_PRODUCTION },
 
 	// For the eCentric payment gateway
-	ECENTRIC_MERCHANT_ID: { required: flags.IN_LIVE || flags.IN_STAGING },
+	ECENTRIC_MERCHANT_ID: { required: flags.IN_PRODUCTION },
 
 });
 
 // Set any other static or derived vars (that don't need to be overridden by .env or process vars)
 config.OTHER_IMPORTANT_VARS = 'blah blah'
-config.FORCE_SSL = (flags.IN_LIVE || flags.IN_STAGING);
+config.FORCE_SSL = flags.IN_PRODUCTION;
 
 // ..
 
@@ -102,7 +102,7 @@ First, we call `determineAppEnv()`, which determines the current `APP_ENV` by in
 const APP_ENV = envLib.determineAppEnv(process.env.APP_ENV);
 ```
 
-This determination is based on the IP address ranges we use for VPCs in our deployed regions, 
+This determination is based on the IP address ranges we use for VPCs in our deployed regions,
 (documented in the Thinkmill Wiki)[https://github.com/Thinkmill/wiki/blob/master/infrastructure/ip-addresses.md].
 
 The valid `APP_ENV` are:
@@ -134,14 +134,14 @@ Once we have the `APP_ENV` we can use this function to build out a set of flags 
 const flags = envLib.buildAppFlags(APP_ENV);
 ```
 
-This is totally optional but gives us a convenient convention for describing other conditions in the `config.js` file.
+This is optional but gives us a convenient convention for describing other conditions in the `config.js` file.
 
-One flag is created for each environment the app supports (usually: 'live', 'staging', 'testing' and 'development') 
+One flag is created for each environment the app supports (usually 'live', 'staging', 'testing' and 'development')
 plus a flag for 'production', which is true if the environment is 'live' or 'staging'.
 
 For example, if the `APP_ENV` was `staging`, the structure returned by the call above would be:
 
-```javascript  
+```javascript
 console.log(flags);
 // { IN_LIVE: false, IN_STAGING: true, IN_TESTING: false, IN_DEVELOPMENT: false, IN_PRODUCTION: true }
 ```
@@ -223,16 +223,16 @@ config.SUPPORT_PHONE_NUMBER = '1800 817 483';
 ### Addressing External Systems
 
 Many (all?) Thinkmill apps rely on external systems that differ between environments (`APP_ENV`).
-This is especially true in for blueshyft, where requests often require the cooperation of shared 
+This is especially true in for blueshyft, where requests often require the cooperation of shared
 internal services (such as the core, transaction engine, etc) and external services (such as remote partner APIs).
 
-Since both these approaches add values directly to the config object (without using `mergeConfig()`), 
+Since both these approaches add values directly to the config object (without using `mergeConfig()`),
 values set in this way can't be overridden/set without code changes.
 
 #### blueshyft Apps
 
-For the blueshyft network of apps, the 
-[`@thinkmill/blueshyft-network` package](https://www.npmjs.com/package/@thinkmill/blueshyft-network) 
+For the blueshyft network of apps, the
+[`@thinkmill/blueshyft-network` package](https://www.npmjs.com/package/@thinkmill/blueshyft-network)
 was developed to centralise the addressing of apps across environments.
 Usage of the package looks like this:
 
@@ -282,7 +282,7 @@ config.ALLOW_RESET_AFTER_EMAIL_GENERATION = !IN_LIVE;
 
 ## Exporting the Values
 
-The final lines in our example export the `config` object we've created for use by the app after 
+The final lines in our example export the `config` object we've created for use by the app after
 [freezing](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/freeze) it.
 This prevents any other part of the application from accidenally making changes to this object.
 
