@@ -7,17 +7,25 @@ const os = require('os');
 
 
 // Configure the VPC's in different AWS regions
-const VPC_IP_RANGES = {
-	// Sydney (ap-southeast-2)
-	'10.117.0.0/16': 'live',
-	'10.118.0.0/16': 'staging',
-	'10.119.0.0/16': 'testing',
+const AWS_VPCS = [
 
-	// Ireland (eu-west-1)
-	'10.130.0.0/16': 'live',
-	'10.131.0.0/16': 'staging',
-	'10.132.0.0/16': 'testing',
-};
+	// Thinkmill Sydney (ap-southeast-2)
+	{ cidr: '10.117.0.0/16', env: 'live' },
+	{ cidr: '10.118.0.0/16', env: 'staging' },
+	{ cidr: '10.119.0.0/16', env: 'testing' },
+	// Also.. 10.97.0.0/16 Blueshyft XIT
+
+	// Thinkmill Ireland (eu-west-1)
+	{ cidr: '10.130.0.0/16', env: 'live' },
+	{ cidr: '10.131.0.0/16', env: 'staging' },
+	{ cidr: '10.132.0.0/16', env: 'testing' },
+
+	// blueshyft Sydney (ap-southeast-2)
+	{ cidr: '10.20.0.0/16', env: 'live' },
+	{ cidr: '10.21.0.0/16', env: 'staging' },
+	{ cidr: '10.22.0.0/16', env: 'testing' },
+	// Also.. 10.30.0.0/16 XIT
+];
 
 // The different environments we support
 const SUPPORTED_ENVS = ['live', 'staging', 'testing', 'development'];
@@ -58,15 +66,14 @@ function determineAppEnv (_processAppEnv) {
 
 	// If the servers ip exists in one of the defined subnets, return that environment
 	const serverIp = getServerIp();
-	var envRtn = 'development';
+	const possibleVpcs = AWS_VPCS.filter(vpc => new Netmask(vpc.cidr).contains(serverIp) && SUPPORTED_ENVS.includes(vpc.env));
+	if (possibleVpcs.length > 1) throw new Error(`Server IP matches > 1 potential VPC: ${possibleVpcs.map(vpc => (`${vpc.env} ${vpc.cidr}`)).join('; ')}`);
 
-	Object.keys(VPC_IP_RANGES).forEach(cidr => {
-		const cidrEnv = VPC_IP_RANGES[cidr];
-		if (new Netmask(cidr).contains(serverIp) && SUPPORTED_ENVS.includes(cidrEnv)) {
-			debug(`APP_ENV determined from server IP as ${chalk.cyan(cidrEnv)} (${chalk.green(serverIp)} is within ${chalk.green(cidr)})`);
-			envRtn = cidrEnv;
-		}
-	});
+	let envRtn = 'development';
+	if (possibleVpcs.length === 1) {
+		debug(`APP_ENV determined from server IP as ${chalk.cyan(possibleVpcs[0].env)} (${chalk.green(serverIp)} is within ${chalk.green(possibleVpcs[0].cidr)})`);
+		envRtn = possibleVpcs[0].env;
+	}
 
 	// Default to development
 	debug(`APP_ENV returning as ${chalk.cyan(envRtn)}`);
@@ -124,4 +131,11 @@ function mergeConfig (appEnv, appFlags, processEnv, rules) {
 
 
 // Export the ip and the subnet check function
-module.exports = { getServerIp, determineAppEnv, buildAppFlags, mergeConfig };
+module.exports = {
+	getServerIp,
+	determineAppEnv,
+	buildAppFlags,
+	mergeConfig,
+	supportedEnvs: SUPPORTED_ENVS,
+	awsVpcs: AWS_VPCS,
+};
