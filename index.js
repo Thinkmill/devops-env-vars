@@ -105,21 +105,52 @@ function mergeConfig (appEnv, appFlags, processEnv, rules) {
 	for (let i = 0; i < ruleKeys.length; i++) {
 		const varName = ruleKeys[i];
 		const varRule = rules[varName];
+		let supplied;
 
 		if (processEnv.hasOwnProperty(varName)) {
 			debug(`${chalk.cyan(varName)} setting from processEnv: '${chalk.yellow(processEnv[varName])}'`);
-			config[varName] = processEnv[varName];
+			supplied = processEnv[varName];
 		}
 
-		if (varRule.required && !config.hasOwnProperty(varName)) {
+		if (varRule.required && typeof supplied === 'undefined') {
 			debug(`${chalk.cyan(varName)} not set and required; throwing error...`);
 			throw new Error(`Environment var validation: The var '${varName}' is marked as required but has not been supplied.`);
 		}
 
-		if (varRule.hasOwnProperty('default') && !config.hasOwnProperty(varName)) {
+		if (varRule.hasOwnProperty('default') && typeof supplied === 'undefined') {
 			debug(`${chalk.cyan(varName)} not set; defaulting to ${chalk.red(varRule.default)}`);
-			config[varName] = varRule.default;
+			supplied = varRule.default;
 		}
+
+		// Coerce the value to the type specifed (if specified)
+		if (varRule.hasOwnProperty('type')) {
+			const suppliedStr = supplied.toString().toLowerCase();
+			const suppliedNum = parseInt(suppliedStr);
+			// Error if the value supplied can't be clearly interpreted as the correct type
+
+			if (varRule.type === Boolean) {
+				if (typeof supplied !== 'boolean' && !['yes', 'true', 'y', 't', 'false', 'no', 'f', 'n'].includes(suppliedStr) && isNaN(suppliedNum)) {
+					throw new Error(`Environment var supplied for '${varName}' is defined as a Boolean but the value supplied can't be reliably interpreted as one`);
+				}
+				supplied = (supplied === true || ['yes', 'true', 'y', 't'].includes(suppliedStr) || suppliedNum > 0 || suppliedNum < 0);
+			}
+			else if (varRule.type === Number) {
+				if (isNaN(suppliedNum)) {
+					throw new Error(`Environment var supplied for '${varName}' is defined as a Number but the value supplied can't be reliably interpreted as one`);
+				}
+				supplied = suppliedNum;
+			}
+			else if (varRule.type === String) {
+				if (supplied !== suppliedStr) {
+					throw new Error(`Environment var supplied for '${varName}' is defined as a String but the value supplied can't be reliably interpreted as one`);
+				}
+			}
+			else {
+				throw new Error(`Environment var '${varName}' specifies an unrecognised type: '${varRule.type.name}'`);
+			}
+		}
+
+		config[varName] = supplied;
 	}
 
 	// Add the APP_ENV and flags

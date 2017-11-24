@@ -1,10 +1,11 @@
 Devops: Environment Variables
-=============================
+================================================================================
 
 A set of helper functions that encapsulate our treatment of environment vars for KeystoneJS apps and help us build a useful `config` object.
 
 
-## Usage
+Usage
+--------------------------------------------------------------------------------
 
 The code block below demonstrates how this library should be used in a modern KeystoneJS app.
 It's based on the [`config.js` in the `admyt-platform` codebase](https://github.com/Thinkmill/admyt-platform/blob/develop/config.js).
@@ -65,6 +66,12 @@ const config = envLib.mergeConfig(APP_ENV, flags, process.env, {
 	// For the eCentric payment gateway
 	ECENTRIC_MERCHANT_ID: { required: flags.IN_PRODUCTION },
 
+	// Recreate the entire DB
+	RESET_DATABASE: { required: false, default: false, type: Boolean },
+
+	// What port should the webserver bind to
+	PORT: { required: flags.IN_PRODUCTION, default: 3000, type: Number },
+
 });
 
 // Set any other static or derived vars (that don't need to be overridden by .env or process vars)
@@ -80,7 +87,8 @@ module.exports = Object.freeze(config);
 Lets step though the code above in detail.
 
 
-## Client-side Inclusion
+Client-side Inclusion
+--------------------------------------------------------------------------------
 
 Since some of the config variables are also often needed client side, there's a temptation to simply require `config.js` there too.
 This is a terrible, terrible idea; it usually exposes security-sensitive values to the end user.
@@ -93,7 +101,8 @@ if (typeof window !== 'undefined') throw new Error(`You definitely shouldn't req
 ```
 
 
-## `envLib.determineAppEnv(process.env.APP_ENV)`
+`envLib.determineAppEnv(process.env.APP_ENV)`
+--------------------------------------------------------------------------------
 
 First, we call `determineAppEnv()`, which determines the current `APP_ENV` by inspecting the servers IP address the `APP_ENV` value supplied by `process.env` (if present):
 
@@ -125,7 +134,8 @@ The conventional relationship between `NODE_ENV` and `APP_ENV` is shown in the t
 This may not hold for all apps, especially older apps created before our `APP_ENV` usage was codified.
 
 
-## `envLib.buildAppFlags(APP_ENV)`
+`envLib.buildAppFlags(APP_ENV)`
+--------------------------------------------------------------------------------
 
 Once we have the `APP_ENV` we can use this function to build out a set of flags representing the different environments:
 
@@ -147,7 +157,8 @@ console.log(flags);
 ```
 
 
-## `dotenv.config(..)`
+`dotenv.config(..)`
+--------------------------------------------------------------------------------
 
 Next, standard practice is to seek out a `.env` file in the directory above the application root, named for the current `APP_ENV`:
 
@@ -168,7 +179,8 @@ This is the default behaviour of `dotenv` and actually pretty useful if you have
 In it's standard usage, no other part of this process alters the `process.env` scope; we mostly work out of the `config` object, created next.
 
 
-## `envLib.mergeConfig(APP_ENV, flags, process.env, rules)`
+`envLib.mergeConfig(APP_ENV, flags, process.env, rules)`
+--------------------------------------------------------------------------------
 
 The values loaded are next verified and assembled into the `config` object:
 
@@ -189,11 +201,16 @@ Variables are described with a `required` flag and, optionally, a default value.
 If a variable is `required` but no present in `process.env` (after the `.env` file has been processed) an error will be raised, halting the app.
 If a variable is both not `required`, not supplied and a `default` is specified, the `default` will be incorporated into the object returned.
 
+Variables definitions can optionally include a `type`, being either `Boolean`, `Number` or `String` (or unspecified).
+If supplied, the value given by the environment will be interpreted as this type.
+If an appropriate value can't be unambiguously determined (ie. a value of "coffee" suppled for a `Boolean` value) an error will be thrown.
+
 As noted above, **the `mergeConfig()` function does not modify the `process.env` scope**.
 Variables that are defaulted based on the validation rules supplied will only exist in the object returned by `mergeConfig()`.
 
 
-## Other Config Values
+Other Config Values
+--------------------------------------------------------------------------------
 
 Most apps will also use a number of values that don't need to be set externally (ie. by `process.env` or the `.env` file).
 Placing these in the `config` object increases maintainability by removing the need to hardcode values and logic throughout an app.
@@ -280,7 +297,8 @@ config.ALLOW_RESET_AFTER_EMAIL_GENERATION = !IN_LIVE;
 ```
 
 
-## Exporting the Values
+Exporting the Values
+--------------------------------------------------------------------------------
 
 The final lines in our example export the `config` object we've created for use by the app after
 [freezing](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/freeze) it.
