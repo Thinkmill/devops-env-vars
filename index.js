@@ -6,27 +6,6 @@ const Netmask = require('netmask').Netmask;
 const os = require('os');
 
 
-// Configure the VPC's in different AWS regions
-const AWS_VPCS = [
-
-	// Thinkmill Sydney (ap-southeast-2)
-	{ cidr: '10.117.0.0/16', env: 'live' },
-	{ cidr: '10.118.0.0/16', env: 'staging' },
-	{ cidr: '10.119.0.0/16', env: 'testing' },
-	// Also.. 10.97.0.0/16 Blueshyft XIT
-
-	// Thinkmill Ireland (eu-west-1)
-	{ cidr: '10.130.0.0/16', env: 'live' },
-	{ cidr: '10.131.0.0/16', env: 'staging' },
-	{ cidr: '10.132.0.0/16', env: 'testing' },
-
-	// blueshyft Sydney (ap-southeast-2)
-	{ cidr: '10.20.0.0/16', env: 'live' },
-	{ cidr: '10.21.0.0/16', env: 'staging' },
-	{ cidr: '10.22.0.0/16', env: 'testing' },
-	// Also.. 10.30.0.0/16 XIT
-];
-
 // The different environments we support
 const SUPPORTED_ENVS = ['live', 'staging', 'testing', 'development'];
 
@@ -50,9 +29,13 @@ function getServerIp () {
 	return serverIp;
 }
 
+/*
+	Figures out which APP_ENV to use, based on the value supplied, the supported envs and the servers IP address
 
-// Figures out which APP_ENV to use, based on the value supplied, the supported envs and the servers IP address
-function determineAppEnv (_processAppEnv) {
+	networksArray is expected in the format..
+	[{ cidr: '72.67.5.0/16', env: 'live' }, { cidr: '72.68.5.0/16', env: 'staging' }, { cidr: '72.69.5.0/16', env: 'testing' }]
+*/
+function determineAppEnv (_processAppEnv, networksArray = []) {
 	const debug = debugLib('@thinkmill/devops-env-vars:determineAppEnv');
 
 	// Validate the supplied process APP_ENV
@@ -66,13 +49,13 @@ function determineAppEnv (_processAppEnv) {
 
 	// If the servers ip exists in one of the defined subnets, return that environment
 	const serverIp = getServerIp();
-	const possibleVpcs = AWS_VPCS.filter(vpc => new Netmask(vpc.cidr).contains(serverIp) && SUPPORTED_ENVS.includes(vpc.env));
-	if (possibleVpcs.length > 1) throw new Error(`Server IP matches > 1 potential VPC: ${possibleVpcs.map(vpc => (`${vpc.env} ${vpc.cidr}`)).join('; ')}`);
+	const candidateNetworks = networksArray.filter(network => new Netmask(network.cidr).contains(serverIp) && SUPPORTED_ENVS.includes(network.env));
+	if (candidateNetworks.length > 1) throw new Error(`Server IP matches > 1 potential network: ${candidateNetworks.map(network => (`${network.env} ${network.cidr}`)).join('; ')}`);
 
 	let envRtn = 'development';
-	if (possibleVpcs.length === 1) {
-		debug(`APP_ENV determined from server IP as ${chalk.cyan(possibleVpcs[0].env)} (${chalk.green(serverIp)} is within ${chalk.green(possibleVpcs[0].cidr)})`);
-		envRtn = possibleVpcs[0].env;
+	if (candidateNetworks.length === 1) {
+		debug(`APP_ENV determined from server IP as ${chalk.cyan(candidateNetworks[0].env)} (${chalk.green(serverIp)} is within ${chalk.green(candidateNetworks[0].cidr)})`);
+		envRtn = candidateNetworks[0].env;
 	}
 
 	// Default to development
@@ -168,5 +151,4 @@ module.exports = {
 	buildAppFlags,
 	mergeConfig,
 	supportedEnvs: SUPPORTED_ENVS,
-	awsVpcs: AWS_VPCS,
 };

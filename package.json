@@ -3,6 +3,7 @@
   "version": "2.0.0",
   "description": "Helper functions that encapsulate our treatment of environment vars for KeystoneJS apps",
   "main": "index.js",
+  "license": "MIT",
   "scripts": {
     "release-patch": "npm version patch && git push && git push --tags",
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -22,6 +23,7 @@
     "netmask": "^1.0.6"
   },
   "devDependencies": {
-    "eslint": "^3.2.2"
+    "eslint": "^3.10.0",
+    "eslint-config-keystone": "^3.0.0"
   }
 }

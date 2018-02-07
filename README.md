@@ -7,23 +7,22 @@ A set of helper functions that encapsulate our treatment of environment vars for
 Usage
 --------------------------------------------------------------------------------
 
-The code block below demonstrates how this library should be used in a modern KeystoneJS app.
-It's based on the [`config.js` in the `admyt-platform` codebase](https://github.com/Thinkmill/admyt-platform/blob/develop/config.js).
+The code block below demonstrates how this library can be used in a fictional KeystoneJS app, the `chumble-platform`.
 
-```javascript
-'use strict';
-
-// This doesn't actually stop the config from being loaded onto clients, it's just a warning for developers
-if (typeof window !== 'undefined') throw new Error(`You definitely shouldn't require ./config on the client`);
-
-
+```js
 const envLib = require('@thinkmill/devops-env-vars');
 const path = require('path');
 const dotenv = require('dotenv');
 
 
+// This doesn't actually stop the config from being loaded onto clients, it's just a warning for developers
+if (typeof window !== 'undefined') throw new Error(`You definitely shouldn't require ./config on the client`);
+
 // Determine the current APP_ENV
-const APP_ENV = envLib.determineAppEnv(process.env.APP_ENV);
+const APP_ENV = envLib.determineAppEnv(
+	process.env.APP_ENV,
+	[{ cidr: '72.67.5.0/16', env: 'live' }, { cidr: '72.68.5.0/16', env: 'staging' }, { cidr: '72.69.5.0/16', env: 'testing' }],
+);
 
 // Convert the APP_ENV to some handy flags
 const flags = envLib.buildAppFlags(APP_ENV);
@@ -38,16 +37,16 @@ const config = envLib.mergeConfig(APP_ENV, flags, process.env, {
 	NODE_ENV: { required: !flags.IN_DEVELOPMENT, default: 'development' },
 
 	// If not supplied, Keystone will default to localhost (ie. in dev)
-	MONGO_URI: { required: flags.IN_PRODUCTION, default: 'mongodb://localhost/admyt-platform' },
+	MONGO_URI: { required: flags.IN_PRODUCTION, default: 'mongodb://localhost/chumble-platform' },
 
 	// Used to encrypt user cookies; not important in dev
-	JWT_TOKEN_SECRET: { required: flags.IN_PRODUCTION, default: 'gottalovejwts' },
+	JWT_TOKEN_SECRET: { required: flags.IN_PRODUCTION, default: 'dev-secret-goes-here' },
 
 	// When not live, allow to be defaulted to a test key
-	MANDRILL_API_KEY: { required: flags.IN_PRODUCTION, default: 'testkeygoeshere' },
+	MANDRILL_API_KEY: { required: flags.IN_PRODUCTION, default: 'test-key-goes-here' },
 
 	// Cloudinary creds; used by Types.CloudinaryImage
-	CLOUDINARY_URL: { required: flags.IN_PRODUCTION, default: 'cloudinary://862989489411169:Wp74nFvzkSPGkQHgtCBH7wN4Yik@thinkmill' },
+	CLOUDINARY_URL: { required: flags.IN_PRODUCTION, default: 'cloudinary://012345678902345:9FDRoGKGpYZVASNDwyTdJRKOIku@thinkmill' },
 
 	// S3 credentials; used by Types.S3File
 	S3_BUCKET: { required: flags.IN_PRODUCTION },
@@ -63,39 +62,49 @@ const config = envLib.mergeConfig(APP_ENV, flags, process.env, {
 	NEW_RELIC_LICENSE_KEY: { required: flags.IN_PRODUCTION },
 	NEW_RELIC_APP_NAME: { required: flags.IN_PRODUCTION },
 
-	// For the eCentric payment gateway
-	ECENTRIC_MERCHANT_ID: { required: flags.IN_PRODUCTION },
-
-	// Recreate the entire DB
-	RESET_DATABASE: { required: false, default: false, type: Boolean },
-
 	// What port should the webserver bind to
 	PORT: { required: flags.IN_PRODUCTION, default: 3000, type: Number },
 
 });
 
-// Set any other static or derived vars (that don't need to be overridden by .env or process vars)
-config.OTHER_IMPORTANT_VARS = 'blah blah'
-config.FORCE_SSL = flags.IN_PRODUCTION;
+// Support details
+config.FROM_EMAIL = 'support@chumble.com.au';
+config.FROM_NAME = 'Chumble Support';
+config.SUPPORT_PHONE_NUMBER = '1800 422 554';
 
-// ..
+// Where should we address the plumbus API
+config.PLUMBUS_API_URL = ({
+	live:          'https://api.plumbus.net.au',
+	staging:       'https://api-staging.plumbus.net.au',
+	testing:       'https://api-testing.plumbus.net.au',
+	development:   'http://localhost:7634',  // Use a local stub server in dev
+})[APP_ENV];
 
-// Lock and export the config vars
+// Are we disabling developer authentication to developer endpoints?
+config.ALLOW_UNAUTHENTICATED_ACCESS_TO_DEVELOPER_ENDPOINTS = IN_DEVELOPMENT;
+
+// Can calls to the /ploobis/create endpoint specify their own fleeb?
+config.ALLOW_FLEEB_TO_BE_SPECIFIED_ON_CREATE = true;
+
+// Can ploobis be reset even after email generation has commenced
+config.ALLOW_PLOOBIS_RESET_AFTER_EMAIL_GENERATION = !IN_LIVE;
+
+
+// Freeze and export the config vars
 module.exports = Object.freeze(config);
 ```
 
-Lets step though the code above in detail.
+Lets step though the code above in detail..
 
 
 Client-side Inclusion
 --------------------------------------------------------------------------------
 
 Since some of the config variables are also often needed client side, there's a temptation to simply require `config.js` there too.
-This is a terrible, terrible idea; it usually exposes security-sensitive values to the end user.
-The `config.js` file should simply never leave the server.
+This is a terrible idea for, hopefully, obvious reasons; it almost certainly exposes security-sensitive values to the end user.
 We put this warning in place as a last ditch effort to prevent accidental inclusion.
 
-```javascript
+```js
 // This doesn't actually stop the config from being loaded onto clients, it's just a warning for developers
 if (typeof window !== 'undefined') throw new Error(`You definitely shouldn't require ./config on the client`);
 ```
@@ -104,15 +113,16 @@ if (typeof window !== 'undefined') throw new Error(`You definitely shouldn't req
 `envLib.determineAppEnv(process.env.APP_ENV)`
 --------------------------------------------------------------------------------
 
-First, we call `determineAppEnv()`, which determines the current `APP_ENV` by inspecting the servers IP address the `APP_ENV` value supplied by `process.env` (if present):
+We call `determineAppEnv()` to determines the current `APP_ENV`.
 
-```javascript
+```js
 // Determine the current APP_ENV
-const APP_ENV = envLib.determineAppEnv(process.env.APP_ENV);
+const APP_ENV = envLib.determineAppEnv(
+	process.env.APP_ENV,
+	[{ cidr: '72.67.5.0/16', env: 'live' }, { cidr: '72.68.5.0/16', env: 'staging' }, { cidr: '72.69.5.0/16', env: 'testing' }],
+);
 ```
-
-This determination is based on the IP address ranges we use for VPCs in our deployed regions,
-(documented in the Thinkmill Wiki)[https://github.com/Thinkmill/wiki/blob/master/infrastructure/ip-addresses.md].
+It inspects the servers IP address the `APP_ENV` value supplied by `process.env` (if present).
 
 The valid `APP_ENV` are:
 
@@ -131,15 +141,13 @@ The conventional relationship between `NODE_ENV` and `APP_ENV` is shown in the t
 | testing | 'testing' | (`undefined` or any value != 'production') |
 | development | 'development' | (`undefined` or any value != 'production') |
 
-This may not hold for all apps, especially older apps created before our `APP_ENV` usage was codified.
-
 
 `envLib.buildAppFlags(APP_ENV)`
 --------------------------------------------------------------------------------
 
 Once we have the `APP_ENV` we can use this function to build out a set of flags representing the different environments:
 
-```javascript
+```js
 // Convert the APP_ENV to some handy flags
 const flags = envLib.buildAppFlags(APP_ENV);
 ```
@@ -151,7 +159,7 @@ plus a flag for 'production', which is true if the environment is 'live' or 'sta
 
 For example, if the `APP_ENV` was `staging`, the structure returned by the call above would be:
 
-```javascript
+```js
 console.log(flags);
 // { IN_LIVE: false, IN_STAGING: true, IN_TESTING: false, IN_DEVELOPMENT: false, IN_PRODUCTION: true }
 ```
@@ -160,21 +168,24 @@ console.log(flags);
 `dotenv.config(..)`
 --------------------------------------------------------------------------------
 
-Next, standard practice is to seek out a `.env` file in the directory above the application root, named for the current `APP_ENV`:
+Standard practice is to seek out a `.env` file in the directory above the application root, named for the current `APP_ENV`:
 
-```javascript
+```js
 // Attempt to read the local .env file for this APP_ENV
 if (!flags.IN_DEVELOPMENT) dotenv.config({ path: path.resolve(`../${APP_ENV}.env`) });
 ```
 
-This file should contain any credentials, settings, etc. that are required for the environment but too sensitive to store in the codebase.
-Mandrill API keys, merchant account credentials, live Mongo connection URIs, etc. might be required for a live system but generally aren't needed in development.
-As such, the code above skips this step when `IN_DEVELOPMENT` is true.
+This file should contain any variables required for the environment but security sensitive, so not store in the repo.
+Eg. Mandrill API keys, merchant account credentials, Mongo DB URIs, etc.
+Often these can be defaulted in development environments.
+The code above skips this step when `IN_DEVELOPMENT` is true.
 
 If the `.env` file isn't found a warning will be printed to `stderr` but the app will continue to load.
 See the `dotenv` [package docs](https://www.npmjs.com/package/dotenv) for the expected/supported format of this file.
 
-**The `dotenv` package loads these variables directly into the `process.env` scope.**
+**IMPORTANT:**
+
+The `dotenv` package loads these variables directly into the `process.env` scope.
 This is the default behaviour of `dotenv` and actually pretty useful if you have variables used by packages that don't accept values any other way.
 In it's standard usage, no other part of this process alters the `process.env` scope; we mostly work out of the `config` object, created next.
 
@@ -184,7 +195,7 @@ In it's standard usage, no other part of this process alters the `process.env` s
 
 The values loaded are next verified and assembled into the `config` object:
 
-```javascript
+```js
 // Extract the vars defined from process.env and apply validation and defaults
 const config = envLib.mergeConfig(APP_ENV, flags, process.env, {
 	// ..
@@ -203,9 +214,11 @@ If a variable is both not `required`, not supplied and a `default` is specified,
 
 Variables definitions can optionally include a `type`, being either `Boolean`, `Number` or `String` (or unspecified).
 If supplied, the value given by the environment will be interpreted as this type.
-If an appropriate value can't be unambiguously determined (ie. a value of "coffee" suppled for a `Boolean` value) an error will be thrown.
+If an appropriate value can't be unambiguously determined (eg. a value of "coffee" suppled for a `Boolean` value) an error will be thrown.
 
-As noted above, **the `mergeConfig()` function does not modify the `process.env` scope**.
+**IMPORTANT:**
+
+As noted above, the `mergeConfig()` function does not modify the `process.env` scope.
 Variables that are defaulted based on the validation rules supplied will only exist in the object returned by `mergeConfig()`.
 
 
@@ -216,96 +229,52 @@ Most apps will also use a number of values that don't need to be set externally 
 Placing these in the `config` object increases maintainability by removing the need to hardcode values and logic throughout an app.
 
 They're usually either constants or values that are derived from the other environment variables.
-Some examples, adapted from various codebases, are included below.
 
-### Static Values
+### Examples
 
-Values that are constant for now but may change in future. Eg..
+Support contact details:
 
-SodaKING product pricing:
-
-```javascript
-config.CANISTER_EXCHANGE_PRICE_PER_UNIT_IN_CENTS = 1895;
-config.CANISTER_SELL_PRICE_PER_UNIT_IN_CENTS = 4495;
+```js
+// Support details
+config.FROM_EMAIL = 'support@chumble.com.au';
+config.FROM_NAME = 'Chumble Support';
+config.SUPPORT_PHONE_NUMBER = '1800 422 554';
 ```
 
-Blueshyft support contact details:
+An the URL of an external system based on the current `APP_ENV`:
 
-```javascript
-config.FROM_EMAIL = 'support@blueshyft.com.au';
-config.FROM_NAME = 'Blueshyft Support';
-config.SUPPORT_PHONE_NUMBER = '1800 817 483';
-```
-
-### Addressing External Systems
-
-Many (all?) Thinkmill apps rely on external systems that differ between environments (`APP_ENV`).
-This is especially true in for blueshyft, where requests often require the cooperation of shared
-internal services (such as the core, transaction engine, etc) and external services (such as remote partner APIs).
-
-Since both these approaches add values directly to the config object (without using `mergeConfig()`),
-values set in this way can't be overridden/set without code changes.
-
-#### blueshyft Apps
-
-For the blueshyft network of apps, the
-[`@thinkmill/blueshyft-network` package](https://www.npmjs.com/package/@thinkmill/blueshyft-network)
-was developed to centralise the addressing of apps across environments.
-Usage of the package looks like this:
-
-```javascript
-const network = require('@thinkmill/blueshyft-network');
-
-// Pull in any vars we want for the network config (for this APP_ENV) and merge them into our config
-config = Object.assign(config, network.getVars(APP_ENV, [
-	'CORE_API_URL',
-	'PCA_TRANSACTIONS_API_URL',
-	'TLS_ECOSYSTEM',
-]));
-```
-
-See the [package docs](https://www.npmjs.com/package/@thinkmill/blueshyft-network) for details.
-
-#### Non-blueshyft Apps
-
-In non-blueshyft systems, an implementation pattern has evolved to define a set of values while maintaining readability.
-
-```javascript
+```js
+// Where should we address the plumbus API
 config.PLUMBUS_API_URL = ({
 	live:          'https://api.plumbus.net.au',
 	staging:       'https://api-staging.plumbus.net.au',
 	testing:       'https://api-testing.plumbus.net.au',
-	development:   'http://localhost:7634',  // Plumbus stub server
+	development:   'http://localhost:7634',  // Use a local stub server in dev
 })[APP_ENV];
 ```
 
+It can be useful to control specific functionality with feature flags:
 
-### Feature Flags
-
-It's often useful to control specific code branches with individual flags.
-These examples taken from the `blueshyft-transactions-api` codebase:
-
-```javascript
+```js
 // Are we disabling developer authentication to developer endpoints?
 config.ALLOW_UNAUTHENTICATED_ACCESS_TO_DEVELOPER_ENDPOINTS = IN_DEVELOPMENT;
 
-// Can calls to the /sweeps/create end point specify the sweepday used or do we exclusively rely on getNextSweepday()
-config.ALLOW_SWEEPDAY_TO_BE_SPECIFIED_ON_CREATE = true;
+// Can calls to the /ploobis/create endpoint specify their own fleeb?
+config.ALLOW_FLEEB_TO_BE_SPECIFIED_ON_CREATE = true;
 
-// Can sweeps be 'reset' after email generation has started
-config.ALLOW_RESET_AFTER_EMAIL_GENERATION = !IN_LIVE;
+// Can ploobis be reset even after email generation has commenced
+config.ALLOW_PLOOBIS_RESET_AFTER_EMAIL_GENERATION = !IN_LIVE;
 ```
 
 
 Exporting the Values
 --------------------------------------------------------------------------------
 
-The final lines in our example export the `config` object we've created for use by the app after
-[freezing](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/freeze) it.
-This prevents any other part of the application from accidenally making changes to this object.
+In this example we [freeze](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/freeze)
+the config object before exporting it for use in our app.
+This goes some way towards preventing other parts of the application from unintentionally setting config values.
 
-```javascript
-// Lock and export the config vars
+```js
+// Freeze and export the config vars
 module.exports = Object.freeze(config);
 ```
-
