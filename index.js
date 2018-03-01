@@ -108,7 +108,7 @@ function mergeConfig (appEnv, appFlags, processEnv, rules) {
 		// Coerce the value to the type specifed (if specified)
 		if (varRule.hasOwnProperty('type')) {
 			const suppliedStr = supplied.toString().toLowerCase();
-			const suppliedNum = parseInt(suppliedStr);
+			const suppliedNum = parseFloat(suppliedStr);
 			// Error if the value supplied can't be clearly interpreted as the correct type
 
 			if (varRule.type === Boolean) {
