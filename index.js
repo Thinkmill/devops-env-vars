@@ -107,15 +107,15 @@ function mergeConfig (appEnv, appFlags, processEnv, rules) {
 
 		// Coerce the value to the type specifed (if specified)
 		if (varRule.hasOwnProperty('type')) {
-			const suppliedStr = supplied.toString().toLowerCase();
+			const suppliedStr = supplied.toString();
 			const suppliedNum = parseFloat(suppliedStr);
 			// Error if the value supplied can't be clearly interpreted as the correct type
 
 			if (varRule.type === Boolean) {
-				if (typeof supplied !== 'boolean' && !['yes', 'true', 'y', 't', 'false', 'no', 'f', 'n'].includes(suppliedStr) && isNaN(suppliedNum)) {
+				if (typeof supplied !== 'boolean' && !['yes', 'true', 'y', 't', 'false', 'no', 'f', 'n'].includes(suppliedStr.toLowerCase()) && isNaN(suppliedNum)) {
 					throw new Error(`Environment var supplied for '${varName}' is defined as a Boolean but the value supplied can't be reliably interpreted as one`);
 				}
-				supplied = (supplied === true || ['yes', 'true', 'y', 't'].includes(suppliedStr) || suppliedNum > 0 || suppliedNum < 0);
+				supplied = (supplied === true || ['yes', 'true', 'y', 't'].includes(suppliedStr.toLowerCase()) || suppliedNum > 0 || suppliedNum < 0);
 			}
 			else if (varRule.type === Number) {
 				if (isNaN(suppliedNum)) {
