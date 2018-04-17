@@ -1,6 +1,6 @@
 {
   "name": "@thinkmill/devops-env-vars",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "description": "Helper functions that encapsulate our treatment of environment vars for KeystoneJS apps",
   "main": "index.js",
   "license": "MIT",
